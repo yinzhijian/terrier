@@ -148,6 +148,8 @@ SimulationResult LargeTransactionTestObject::SimulateOltp(uint32_t num_transacti
   if (!bookkeeping_) {
     // We only need to deallocate, and return, if gc is on, this loop is a no-op
     for (RandomWorkloadTransaction *txn : txns) delete txn;
+    // Unregister the worker threads here if we're bypassing bookkeeping
+    for (auto *thread_context : thread_contexts) txn_manager_.UnregisterWorker(thread_context);
     // This result is meaningless if bookkeeping is not turned on.
     return {{}, {}};
   }
