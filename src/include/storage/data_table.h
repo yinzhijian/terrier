@@ -35,6 +35,7 @@ class HashIndex;
 DEFINE_PERFORMANCE_CLASS(DataTableCounter, DataTableCounterMembers)
 #undef DataTableCounterMembers
 
+extern thread_local std::list<RawBlock *>  local_blocks;
 /**
  * A DataTable is a thin layer above blocks that handles visibility, schemas, and maintenance of versions for a
  * SQL table. This class should be the main outward facing API for the storage engine. SQL level concepts such
@@ -97,7 +98,7 @@ class DataTable {
      */
     SlotIterator(const DataTable *table, std::list<RawBlock *>::const_iterator block, uint32_t offset_in_block)
         : table_(table), block_(block) {
-      current_slot_ = {block == table->blocks_.end() ? nullptr : *block, offset_in_block};
+      current_slot_ = {block == local_blocks.end() ? nullptr : *block, offset_in_block};
     }
 
     // TODO(Tianyu): Can potentially collapse this information into the RawBlock so we don't have to hold a pointer to
@@ -158,7 +159,8 @@ class DataTable {
    */
   SlotIterator begin() const {  // NOLINT for STL name compability
     common::SpinLatch::ScopedSpinLatch guard(&blocks_latch_);
-    return {this, blocks_.begin(), 0};
+    local_blocks = blocks_;
+    return {this, local_blocks.begin(), 0};
   }
 
   /**
@@ -215,6 +217,7 @@ class DataTable {
    * @return read-only view of this DataTable's BlockLayout
    */
   const BlockLayout &GetBlockLayout() const { return accessor_.GetBlockLayout(); }
+
 
  private:
   // The GarbageCollector needs to modify VersionPtrs when pruning version chains
